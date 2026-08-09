@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cianorte - Controle de Fluxo</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  
+  <!-- Chart.js e HTML2Canvas -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header>
+    <img src="logo.png" alt="Lojas Cianorte Logo" class="header-logo">
+    <h1>Controle de Fluxo</h1>
+  </header>
+
+  <div class="app-container">
+    
+    <!-- Configuração Inicial (Supabase) se não configurado -->
+    <div id="setup-panel" class="card hidden">
+      <h2>⚙️ Configuração Inicial</h2>
+      <p>Configure as chaves do Supabase para conectar ao banco de dados.</p>
+      <div class="form-group">
+        <label>Supabase URL</label>
+        <input type="text" id="supa-url" placeholder="https://xyzcompany.supabase.co">
+      </div>
+      <div class="form-group">
+        <label>Supabase Anon Key</label>
+        <input type="password" id="supa-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5c...">
+      </div>
+      <button class="btn btn-success" id="btn-save-setup">Salvar e Conectar</button>
+    </div>
+
+    <div id="main-app" class="hidden">
+      <!-- Seletor Global de Loja -->
+      <div id="loja-selector-container">
+        <label>📍 Loja Atual:</label>
+        <select id="select-loja-global"></select>
+      </div>
+
+      <!-- Abas de Navegação -->
+      <div class="tabs-nav">
+        <button class="tab-btn active" data-target="aba-vendedoras">👩‍💼 Área das Vendedoras</button>
+        <button class="tab-btn" data-target="aba-checklist">✅ Checklist Diário</button>
+        <button class="tab-btn hidden" data-target="aba-admin" id="btn-tab-admin">📊 Área Admin</button>
+      </div>
+
+      <!-- Aba 1: Vendedoras -->
+      <div id="aba-vendedoras" class="tab-content active">
+        <div class="grid-2">
+          <!-- Entrada -->
+          <div class="card">
+            <h2>🟢 Entrada de Cliente</h2>
+            <p style="margin-bottom: 20px; color: var(--text-light);">Clique abaixo quando um cliente entrar na loja.</p>
+            <button class="btn btn-success" id="btn-entrada" style="padding: 20px; font-size: 1.3rem;">
+              Registrar Nova Entrada
+            </button>
+          </div>
+
+          <!-- Saída -->
+          <div class="card">
+            <h2>🔴 Saída de Cliente <span id="badge-clientes" style="font-size: 0.9rem; background: var(--primary-color); color: white; padding: 4px 10px; border-radius: 12px; margin-left: 10px; display: none;"></span></h2>
+            
+            <div id="saida-warning" style="background: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: 700; border-left: 5px solid #ffeeba;">
+              ⚠️ Não há clientes registrados na loja neste momento. Registre uma entrada primeiro.
+            </div>
+
+            <div id="saida-form">
+              <p style="margin-bottom: 20px; color: var(--text-light);">Preencha ao cliente sair da loja.</p>
+              
+              <div class="form-group">
+              <label>Nome da funcionária atendendo</label>
+              <!-- Will be converted to select if config provides it, or text input -->
+              <input type="text" id="input-funcionaria" placeholder="Ex: Ana">
+            </div>
+            
+            <div class="form-group">
+              <label>O cliente realizou uma compra?</label>
+              <select id="select-comprou">
+                <option value="Sim">Sim</option>
+                <option value="Não">Não</option>
+              </select>
+            </div>
+            
+            <div id="container-motivo" class="hidden">
+              <div class="form-group">
+                <label>Motivo da perda</label>
+                <select id="select-motivo">
+                  <option value="">Selecione...</option>
+                  <option value="Só estava olhando">Só estava olhando</option>
+                  <option value="Achou caro">Achou caro</option>
+                  <option value="Não encontrou o que procurava">Não encontrou o que procurava</option>
+                  <option value="Falta de tamanho/cor">Falta de tamanho/cor</option>
+                  <option value="Mau atendimento">Mau atendimento</option>
+                  <option value="Problema na forma de pagamento">Problema na forma de pagamento</option>
+                  <option value="Outro">Outro</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label id="label-obs">Observações (opcional)</label>
+              <textarea id="input-obs" rows="3" placeholder="Detalhes adicionais..."></textarea>
+            </div>
+
+            <button class="btn" id="btn-saida">Registrar Saída</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Aba 2: Checklist -->
+      <div id="aba-checklist" class="tab-content">
+        <div class="card">
+          <h2 id="checklist-title">✅ Checklist Diário</h2>
+          <p style="margin-bottom: 20px; color: var(--text-light);">Marque as tarefas concluídas hoje.</p>
+          
+          <div class="form-group">
+            <label>Nome da funcionária</label>
+            <input type="text" id="check-funcionaria" placeholder="Ex: Ana">
+          </div>
+
+          <div id="checklist-container" style="margin-bottom: 20px;">
+            <!-- Renderizado via JS -->
+          </div>
+
+          <button class="btn btn-success" id="btn-salvar-check">Salvar Checklist</button>
+        </div>
+      </div>
+
+      <!-- Aba 3: Admin -->
+      <div id="aba-admin" class="tab-content">
+        <div class="card">
+          <h2>📊 Visão Geral</h2>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Selecione o Período:</label>
+              <select id="admin-periodo">
+                <option value="Hoje">Hoje</option>
+                <option value="Ontem">Ontem</option>
+                <option value="Últimos 7 dias">Últimos 7 dias</option>
+                <option value="Mês Atual">Mês Atual</option>
+                <option value="Tudo">Tudo</option>
+                <option value="Personalizado">Personalizado...</option>
+              </select>
+              <div id="custom-date-container" class="hidden" style="margin-top: 15px;">
+                <label>Data Inicial e Final</label>
+                <div style="display: flex; gap: 10px;">
+                  <input type="date" id="admin-date-start">
+                  <input type="date" id="admin-date-end">
+                </div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Filtrar Loja:</label>
+              <select id="admin-loja">
+                <option value="Todas as Lojas">Todas as Lojas</option>
+                <!-- Preenchido via JS -->
+              </select>
+            </div>
+          </div>
+          
+          <div class="grid-4" id="admin-metrics" style="margin-top: 20px;">
+            <!-- Métricas via JS -->
+          </div>
+        </div>
+
+        <!-- Sub-tabs do Admin -->
+        <div class="tabs-nav" style="margin-top: 20px; margin-bottom: 20px;">
+          <button class="tab-btn-sub active" data-target="admin-tab-fluxo">👥 Fluxo</button>
+          <button class="tab-btn-sub" data-target="admin-tab-ofensores">📉 Ofensores</button>
+          <button class="tab-btn-sub" data-target="admin-tab-equipe">🏆 Equipe</button>
+          <button class="tab-btn-sub" data-target="admin-tab-lojas">🥇 Lojas</button>
+        </div>
+
+        <div id="admin-tab-fluxo" class="tab-content-sub active">
+          <div class="card">
+            <h2>👥 Fluxo de Clientes</h2>
+            <canvas id="fluxoChart"></canvas>
+          </div>
+        </div>
+
+        <div id="admin-tab-ofensores" class="tab-content-sub">
+          <div class="card">
+            <h2>📉 Principais Motivos de Perda</h2>
+            <div class="table-wrapper">
+              <table id="table-ofensores">
+                <thead><tr><th>Motivo</th><th>Frequência</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="admin-tab-equipe" class="tab-content-sub">
+          <div class="card">
+            <h2>🏆 Performance da Equipe</h2>
+            <div class="table-wrapper">
+              <table id="table-equipe">
+                <thead><tr><th>Vendedora</th><th>Loja</th><th>Atend.</th><th>Vendas</th><th>Conversão</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="admin-tab-lojas" class="tab-content-sub">
+          <div class="card">
+            <h2>🥇 Ranking de Conversão por Loja</h2>
+            <div class="table-wrapper">
+              <table id="table-lojas">
+                <thead><tr><th>Loja</th><th>Entradas</th><th>Vendas</th><th>Perdas</th><th>Conversão</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+          
+          <div class="card" style="margin-top: 20px;">
+            <h2>🔗 Links de Acesso por Loja</h2>
+            <p style="color: var(--text-light); margin-bottom: 15px;">Envie os links abaixo para as vendedoras. A loja já abrirá bloqueada para elas.</p>
+            <div id="links-container">
+              <!-- Renderizado via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Integração Telegram -->
+        <div class="card">
+          <h2>📤 Envio de Fechamento do Dia</h2>
+          <p>Envie o relatório do período atual para o Telegram.</p>
+          
+          <button class="btn" id="btn-send-telegram">Gerar Relatório e Enviar</button>
+
+          <details class="settings-panel" style="margin-top: 20px; border: 1px solid #ddd; padding: 15px; border-radius: 8px; cursor: pointer;">
+            <summary style="font-weight: 700; color: var(--primary-color);">⚙️ Editar Chaves do Telegram (Avançado)</summary>
+            <div style="margin-top: 15px; cursor: default;">
+              <div class="form-group" style="margin-top: 15px;">
+                <label>Bot Token</label>
+                <input type="password" id="tg-token" placeholder="123456789:ABCdefGHIjkl...">
+              </div>
+              <div class="form-group">
+                <label>Chat ID</label>
+                <input type="text" id="tg-chat" placeholder="-100123456789">
+              </div>
+              <button class="btn btn-success" id="btn-save-tg" style="width: auto; padding: 10px 20px;">Salvar Chaves TG</button>
+            </div>
+          </details>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="toast-container"></div>
+
+  <!-- Template Oculto para o Relatório do Telegram -->
+  <div id="telegram-report-template" style="position: absolute; left: -9999px; top: 0; background: white; width: 800px; padding: 40px; font-family: 'Nunito', sans-serif; color: #333; z-index: -1;">
+    <!-- Header -->
+    <div style="display: flex; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 20px; margin-bottom: 20px;">
+      <img src="logo.png" style="height: 60px; margin-right: 20px;" crossorigin="anonymous">
+      <div>
+        <h1 style="margin: 0; font-size: 26px; color: #b71c1c;">CIANORTE - FECHAMENTO DIÁRIO</h1>
+        <p style="margin: 5px 0 0 0; color: #7f8c8d; font-size: 16px;" id="tg-report-subtitle"></p>
+      </div>
+    </div>
+    
+    <!-- Metrics -->
+    <div style="display: flex; gap: 15px; margin-bottom: 30px;" id="tg-report-metrics"></div>
+    
+    <!-- Lojas -->
+    <h2 style="font-size: 18px; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 0;">📍 Desempenho por Loja</h2>
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 14px;" id="tg-report-lojas"></table>
+    
+    <!-- Vendedoras -->
+    <h2 style="font-size: 18px; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 5px;">🏆 Ranking de Vendedoras (Vendas x Perdas)</h2>
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 14px;" id="tg-report-vendedoras"></table>
+    
+    <!-- Ofensores -->
+    <h2 style="font-size: 18px; color: #2c3e50; border-bottom: 1px solid #eee; padding-bottom: 5px;">⚠️ Análise de Perdas e Observações</h2>
+    <p style="font-size: 14px; font-weight: bold; margin-bottom: 15px; color: #444;" id="tg-report-motivos-resumo"></p>
+    <div id="tg-report-obs" style="font-size: 13px; background: #fffdf2; border-left: 4px solid #f1c40f; padding: 15px; border-radius: 4px;">
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

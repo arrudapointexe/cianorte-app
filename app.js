@@ -498,13 +498,13 @@ function atualizarDashboardAdmin() {
   const periodo = document.getElementById('admin-periodo').value;
   const filtroLoja = document.getElementById('admin-loja').value;
   
-  const hoje = new Date().toISOString().split('T')[0];
+  const hoje = formatarData(new Date()).split(' ')[0];
   const ontemDate = new Date();
   ontemDate.setDate(ontemDate.getDate() - 1);
-  const ontem = ontemDate.toISOString().split('T')[0];
+  const ontem = formatarData(ontemDate).split(' ')[0];
   const seteDiasDate = new Date();
   seteDiasDate.setDate(seteDiasDate.getDate() - 7);
-  const seteDias = seteDiasDate.toISOString().split('T')[0];
+  const seteDias = formatarData(seteDiasDate).split(' ')[0];
   
   const dateStart = document.getElementById('admin-date-start').value;
   const dateEnd = document.getElementById('admin-date-end').value;
@@ -697,13 +697,13 @@ document.getElementById('btn-send-telegram').addEventListener('click', async () 
   
   // Sincronizar com o período selecionado
   const filtroLoja = document.getElementById('admin-loja').value;
-  const hojeDateStr = new Date().toISOString().split('T')[0];
+  const hojeDateStr = formatarData(new Date()).split(' ')[0];
   const ontemDate = new Date();
   ontemDate.setDate(ontemDate.getDate() - 1);
-  const ontem = ontemDate.toISOString().split('T')[0];
+  const ontem = formatarData(ontemDate).split(' ')[0];
   const seteDiasDate = new Date();
   seteDiasDate.setDate(seteDiasDate.getDate() - 7);
-  const seteDias = seteDiasDate.toISOString().split('T')[0];
+  const seteDias = formatarData(seteDiasDate).split(' ')[0];
   
   const dateStart = document.getElementById('admin-date-start').value;
   const dateEnd = document.getElementById('admin-date-end').value;

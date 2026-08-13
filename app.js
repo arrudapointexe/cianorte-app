@@ -33,6 +33,35 @@ function formatarData(data) {
   return `${d} ${h}`;
 }
 
+window.copiarLink = function(text, btn) {
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('Link copiado!');
+      const originalText = btn.textContent;
+      btn.textContent = 'Copiado!';
+      setTimeout(() => btn.textContent = originalText, 2000);
+    });
+  } else {
+    // Fallback for non-HTTPS (like local network IPs)
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      showToast('Link copiado!');
+      const originalText = btn.textContent;
+      btn.textContent = 'Copiado!';
+      setTimeout(() => btn.textContent = originalText, 2000);
+    } catch (err) {
+      showToast('Erro ao copiar link', 'error');
+    }
+    document.body.removeChild(textArea);
+  }
+}
+
 // Navegação de Abas
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
@@ -72,6 +101,20 @@ if (isAdmin) {
 
 // Inicialização e Configuração do Supabase
 function initApp() {
+  const urlSupaUrl = urlParams.get('supaUrl');
+  const urlSupaKey = urlParams.get('supaKey');
+  
+  if (urlSupaUrl && urlSupaKey) {
+    localStorage.setItem('supaUrl', urlSupaUrl);
+    localStorage.setItem('supaKey', urlSupaKey);
+    // Remove os parâmetros sensíveis da URL para não ficarem visíveis na barra de endereços
+    let novaUrl = window.location.pathname;
+    if (lojaFixa && lojaFixa !== 'null') {
+      novaUrl += "?loja_fixa=" + encodeURIComponent(lojaFixa);
+    }
+    window.history.replaceState({}, document.title, novaUrl);
+  }
+
   const supaUrl = localStorage.getItem('supaUrl');
   const supaKey = localStorage.getItem('supaKey');
 
@@ -171,14 +214,16 @@ function processarConfigs() {
   if (linksContainer) {
     linksContainer.innerHTML = '';
     const baseUrl = window.location.origin + window.location.pathname;
+    const sUrl = localStorage.getItem('supaUrl') || '';
+    const sKey = localStorage.getItem('supaKey') || '';
     lojasDisponiveis.forEach(loja => {
-      const link = `${baseUrl}?loja_fixa=${encodeURIComponent(loja)}`;
+      const link = `${baseUrl}?loja_fixa=${encodeURIComponent(loja)}&supaUrl=${encodeURIComponent(sUrl)}&supaKey=${encodeURIComponent(sKey)}`;
       linksContainer.innerHTML += `
         <div style="background: #f8f9fa; padding: 10px 15px; border-radius: 8px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; border: 1px solid #eee;">
           <span style="font-weight: 700; color: var(--primary-color);">${loja}</span>
           <div style="display:flex; gap:10px; flex-grow: 1; max-width: 400px;">
             <input type="text" value="${link}" readonly style="flex-grow: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85rem; background: #fff;" onclick="this.select()">
-            <button class="btn btn-success" style="padding: 8px 15px; font-size: 0.85rem; width: auto;" onclick="navigator.clipboard.writeText('${link}'); showToast('Link copiado!');">Copiar</button>
+            <button class="btn btn-success" style="padding: 8px 15px; font-size: 0.85rem; width: auto;" onclick="window.copiarLink('${link}', this)">Copiar</button>
           </div>
         </div>
       `;
@@ -362,7 +407,7 @@ function renderizarChecklist() {
   container.innerHTML = '';
 
   tarefasChecklist.forEach(tarefa => {
-    const concluidoPor = checklistsHoje.filter(c => c.Tarefa === tarefa && c.Status === 'Concluído').map(c => c.Funcionaria);
+    const concluidoPor = checklistsHoje.filter(c => c.Tarefa === tarefa && c.Status === 'Concluído').map(c => c.Funcionaria.toUpperCase());
     const isConcluida = concluidoPor.length > 0;
 
     const div = document.createElement('div');
@@ -453,13 +498,13 @@ function atualizarDashboardAdmin() {
   const periodo = document.getElementById('admin-periodo').value;
   const filtroLoja = document.getElementById('admin-loja').value;
   
-  const hoje = new Date().toISOString().split('T')[0];
+  const hoje = formatarData(new Date()).split(' ')[0];
   const ontemDate = new Date();
   ontemDate.setDate(ontemDate.getDate() - 1);
-  const ontem = ontemDate.toISOString().split('T')[0];
+  const ontem = formatarData(ontemDate).split(' ')[0];
   const seteDiasDate = new Date();
   seteDiasDate.setDate(seteDiasDate.getDate() - 7);
-  const seteDias = seteDiasDate.toISOString().split('T')[0];
+  const seteDias = formatarData(seteDiasDate).split(' ')[0];
   
   const dateStart = document.getElementById('admin-date-start').value;
   const dateEnd = document.getElementById('admin-date-end').value;
@@ -545,8 +590,9 @@ function atualizarDashboardAdmin() {
   const dfSaidas = dfFiltrado.filter(e => e.Tipo_Evento === 'Saida' && e.Funcionaria && e.Funcionaria !== '-');
   const funcStats = {};
   dfSaidas.forEach(e => {
-    const key = e.Funcionaria + '|' + e.Loja;
-    if (!funcStats[key]) funcStats[key] = { func: e.Funcionaria, loja: e.Loja, atend: 0, vendas: 0 };
+    const funcNome = e.Funcionaria.toUpperCase();
+    const key = funcNome + '|' + e.Loja;
+    if (!funcStats[key]) funcStats[key] = { func: funcNome, loja: e.Loja, atend: 0, vendas: 0 };
     funcStats[key].atend++;
     if (e.Comprou === 'Sim') funcStats[key].vendas++;
   });
@@ -651,13 +697,13 @@ document.getElementById('btn-send-telegram').addEventListener('click', async () 
   
   // Sincronizar com o período selecionado
   const filtroLoja = document.getElementById('admin-loja').value;
-  const hojeDateStr = new Date().toISOString().split('T')[0];
+  const hojeDateStr = formatarData(new Date()).split(' ')[0];
   const ontemDate = new Date();
   ontemDate.setDate(ontemDate.getDate() - 1);
-  const ontem = ontemDate.toISOString().split('T')[0];
+  const ontem = formatarData(ontemDate).split(' ')[0];
   const seteDiasDate = new Date();
   seteDiasDate.setDate(seteDiasDate.getDate() - 7);
-  const seteDias = seteDiasDate.toISOString().split('T')[0];
+  const seteDias = formatarData(seteDiasDate).split(' ')[0];
   
   const dateStart = document.getElementById('admin-date-start').value;
   const dateEnd = document.getElementById('admin-date-end').value;
@@ -736,8 +782,9 @@ document.getElementById('btn-send-telegram').addEventListener('click', async () 
     const dfSaidas = dfFiltrado.filter(e => e.Tipo_Evento === 'Saida' && e.Funcionaria && e.Funcionaria !== '-');
     const funcStats = {};
     dfSaidas.forEach(e => {
-      const key = e.Funcionaria + '|' + e.Loja;
-      if (!funcStats[key]) funcStats[key] = { func: e.Funcionaria, loja: e.Loja, atend: 0, vendas: 0 };
+      const funcNome = e.Funcionaria.toUpperCase();
+      const key = funcNome + '|' + e.Loja;
+      if (!funcStats[key]) funcStats[key] = { func: funcNome, loja: e.Loja, atend: 0, vendas: 0 };
       funcStats[key].atend++;
       if (e.Comprou === 'Sim') funcStats[key].vendas++;
     });
@@ -765,7 +812,7 @@ document.getElementById('btn-send-telegram').addEventListener('click', async () 
     let obsHtml = '';
     dfObs.forEach(o => {
       obsHtml += `<div style="margin-bottom: 8px; border-bottom: 1px dashed #eccc68; padding-bottom: 8px;">
-        <strong style="color: #d35400;">[${o.Loja}] ${o.Funcionaria}</strong> indicou '${o.Motivo_Nao_Compra}':<br>
+        <strong style="color: #d35400;">[${o.Loja}] ${o.Funcionaria.toUpperCase()}</strong> indicou '${o.Motivo_Nao_Compra}':<br>
         ${o.Observacoes}
       </div>`;
     });
